@@ -18,7 +18,7 @@ import java.io.IOException;
 public class HomeActivity extends AppCompatActivity {
 
     private static final String TAG = HomeActivity.class.getSimpleName();
-
+    private static final boolean VERBOSE = true;
     private Handler mHandler = new Handler();
     private Gpio bcm4;
     private Gpio bcm5;
@@ -44,23 +44,43 @@ public class HomeActivity extends AppCompatActivity {
 
         mDatabase = FirebaseDatabase.getInstance().getReference();
         getDataInit();
+        DatabaseReference refonline = mDatabase.child("Config").child("online");
+        refonline.onDisconnect().setValue(0);
+    }
 
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (VERBOSE) Log.v(TAG, "- ON PAUSE -");
+        mDatabase.child("Config").child("online").setValue(0);
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        if (VERBOSE) Log.v(TAG, "-- ON STOP --");
+        mDatabase.child("Config").child("online").setValue(0);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (VERBOSE) Log.v(TAG, "-- ON DESTROY --");
+        mDatabase.child("Config").child("online").setValue(0);
         // Remove pending blink Runnable from the handler.
         mHandler.removeCallbacks(mBlinkRunnable);
         // Close the Gpio pin.
         Log.i(TAG, "Closing LED GPIO pin");
         try {
             bcm4.close();
+            bcm5.close();
             bcm6.close();
         } catch (IOException e) {
             Log.e(TAG, "Error on PeripheralIO API", e);
         } finally {
             bcm4 = null;
+            bcm5 = null;
             bcm6 = null;
         }
     }
@@ -134,7 +154,7 @@ public class HomeActivity extends AppCompatActivity {
                 } catch (IOException e) {
                     Log.e(TAG, "Error on PeripheralIO API", e);
                 }
-                 Log.d(TAG, "State set to " + "BCM5");
+                Log.d(TAG, "State set to " + "BCM5");
                 break;
             case "BCM6":
                 try {
@@ -159,6 +179,9 @@ public class HomeActivity extends AppCompatActivity {
 
     private void initGPIO(DataSnapshot ds) {
         switch (ds.getKey()) {
+            case "online":
+                mDatabase.child("Config").child("online").setValue(1);
+                break;
             case "BCM4":
                 try {
                     bcm4 = service.openGpio("BCM4");
