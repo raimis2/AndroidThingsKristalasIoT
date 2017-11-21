@@ -12,18 +12,27 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
 
 import java.io.IOException;
 
 public class HomeActivity extends AppCompatActivity {
 
     private static final String TAG = HomeActivity.class.getSimpleName();
-    private static long intervalBetweenBlinksMs = 1000;
 
     private Handler mHandler = new Handler();
-    private Gpio bcm3;
+    private Gpio bcm4;
+    private Gpio bcm5;
     private Gpio bcm6;
+    private Gpio bcm12;
+    private Gpio bcm16;
+    private Gpio bcm17;
+    private Gpio bcm22;
+    private Gpio bcm23;
+    private Gpio bcm24;
+    private Gpio bcm25;
+    private Gpio bcm26;
+    private Gpio bcm27;
+
     private PeripheralManagerService service = new PeripheralManagerService();
 
     private DatabaseReference mDatabase;
@@ -34,20 +43,6 @@ public class HomeActivity extends AppCompatActivity {
         setContentView(R.layout.activity_home);
 
         mDatabase = FirebaseDatabase.getInstance().getReference();
-
-
-        try {
-            bcm3 = service.openGpio("BCM4");
-            bcm3.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
-
-            bcm6 = service.openGpio("BCM6");
-            bcm6.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
-
-            //  mHandler.post(mBlinkRunnable);
-        } catch (IOException e) {
-            Log.e(TAG, "Error on PeripheralIO API", e);
-        }
-
         getDataInit();
 
     }
@@ -60,12 +55,13 @@ public class HomeActivity extends AppCompatActivity {
         // Close the Gpio pin.
         Log.i(TAG, "Closing LED GPIO pin");
         try {
-            bcm3.close();
+            bcm4.close();
             bcm6.close();
         } catch (IOException e) {
             Log.e(TAG, "Error on PeripheralIO API", e);
         } finally {
-            bcm3 = null;
+            bcm4 = null;
+            bcm6 = null;
         }
     }
 
@@ -73,7 +69,7 @@ public class HomeActivity extends AppCompatActivity {
         @Override
         public void run() {
             // Exit Runnable if the GPIO is already closed
-            if (bcm3 == null) {
+            if (bcm4 == null) {
                 return;
             }
         /*    try {
@@ -96,7 +92,8 @@ public class HomeActivity extends AppCompatActivity {
             @Override
             public void onChildAdded(DataSnapshot dataSnapshot, String prevChildKey) {
                 for (DataSnapshot ds : dataSnapshot.getChildren()) {
-                    updateGPIO(ds);
+                    //updateGPIO(ds);
+                    initGPIO(ds);
                 }
             }
 
@@ -109,7 +106,6 @@ public class HomeActivity extends AppCompatActivity {
 
             @Override
             public void onChildRemoved(DataSnapshot dataSnapshot) {
-
             }
 
             @Override
@@ -120,58 +116,75 @@ public class HomeActivity extends AppCompatActivity {
             public void onCancelled(DatabaseError databaseError) {
             }
         });
-
-
     }
 
     private void updateGPIO(DataSnapshot ds) {
-        boolean state;
-
         switch (ds.getKey()) {
-            case "BCM3":
-                if (bcm3 != null) {
-                    if (Integer.parseInt(ds.getValue().toString()) == 0) {
-                        //mode = Gpio.DIRECTION_OUT_INITIALLY_LOW;
-                        state = false;
-                    } else if (Integer.parseInt(ds.getValue().toString()) == 1) {
-                        //mode = Gpio.DIRECTION_OUT_INITIALLY_HIGH;
-                        state = true;
-                    } else {
-                        //mode = Gpio.DIRECTION_OUT_INITIALLY_LOW;
-                        state = false;
-                    }
-                    try {
-                        bcm3.setValue(state);
-                    } catch (IOException e) {
-                        Log.e(TAG, "Error on PeripheralIO API", e);
-                    }
-                   // Log.d(TAG, "State set to " + "BCM3");
+            case "BCM4":
+                try {
+                    bcm4.setValue(getState(ds.getValue()));
+                } catch (IOException e) {
+                    Log.e(TAG, "Error on PeripheralIO API", e);
+                }
+                // Log.d(TAG, "State set to " + "BCM3");
+                break;
+            case "BCM5":
+                try {
+                    bcm5.setValue(getState(ds.getValue()));
+                } catch (IOException e) {
+                    Log.e(TAG, "Error on PeripheralIO API", e);
+                }
+                 Log.d(TAG, "State set to " + "BCM5");
+                break;
+            case "BCM6":
+                try {
+                    bcm6.setValue(getState(ds.getValue()));
+                } catch (IOException e) {
+                    Log.e(TAG, "Error on PeripheralIO API", e);
+                }
+                //    Log.d(TAG, "State set to " + "BCM6");
+                break;
+        }
+    }
+
+    private boolean getState(Object gpioState) {
+        if (Integer.parseInt(gpioState.toString()) == 0) {
+            return false;
+        } else if (Integer.parseInt(gpioState.toString()) == 1) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    private void initGPIO(DataSnapshot ds) {
+        switch (ds.getKey()) {
+            case "BCM4":
+                try {
+                    bcm4 = service.openGpio("BCM4");
+                    bcm4.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
+                } catch (IOException e) {
+                    Log.e(TAG, "Error on PeripheralIO API", e);
+                }
+                break;
+            case "BCM5":
+                try {
+                    bcm5 = service.openGpio("BCM5");
+                    bcm5.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
+                } catch (IOException e) {
+                    Log.e(TAG, "Error on PeripheralIO API", e);
                 }
                 break;
             case "BCM6":
-                if (bcm6 != null) {
-                    if (Integer.parseInt(ds.getValue().toString()) == 0) {
-                        //mode = Gpio.DIRECTION_OUT_INITIALLY_LOW;
-                        state = false;
-                    } else if (Integer.parseInt(ds.getValue().toString()) == 1) {
-                        //mode = Gpio.DIRECTION_OUT_INITIALLY_HIGH;
-                        state = true;
-                    } else {
-                        //mode = Gpio.DIRECTION_OUT_INITIALLY_LOW;
-                        state = false;
-                    }
-                    try {
-                        bcm6.setValue(state);
-                    } catch (IOException e) {
-                        Log.e(TAG, "Error on PeripheralIO API", e);
-                    }
-                   // Log.d(TAG, "State set to " + "BCM6");
+                try {
+                    bcm6 = service.openGpio("BCM6");
+                    bcm6.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
+                    //Log.d(TAG, "INIT " + "BCM6");
+                } catch (IOException e) {
+                    Log.e(TAG, "Error on PeripheralIO API", e);
                 }
                 break;
-
-
         }
-
-
     }
+
 }
