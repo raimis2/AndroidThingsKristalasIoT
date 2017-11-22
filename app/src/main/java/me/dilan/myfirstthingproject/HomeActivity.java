@@ -20,6 +20,7 @@ public class HomeActivity extends AppCompatActivity {
 
     private static final String TAG = HomeActivity.class.getSimpleName();
     private Handler mHandler = new Handler();
+    private long delayMillis;
     private Gpio bcm4;
     private Gpio bcm5;
     private Gpio bcm6;
@@ -36,6 +37,9 @@ public class HomeActivity extends AppCompatActivity {
     private PeripheralManagerService service = new PeripheralManagerService();
 
     private DatabaseReference mDatabase;
+    private DatabaseReference refBCM17;
+    private DatabaseReference refBCM27;
+    private DatabaseReference refBCM22;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,12 +51,18 @@ public class HomeActivity extends AppCompatActivity {
         DatabaseReference refonline = mDatabase.child("Config").child("online");
         refonline.setValue(1);
         refonline.onDisconnect().setValue(0);
+        refBCM17 = mDatabase.child("GPIO").child("BCM17");
+        refBCM17.onDisconnect().setValue(0);
+        refBCM27 = mDatabase.child("GPIO").child("BCM27");
+        refBCM27.onDisconnect().setValue(0);
+        refBCM22 = mDatabase.child("GPIO").child("BCM22");
+        refBCM22.onDisconnect().setValue(0);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        mHandler.removeCallbacks(mBlinkRunnable);
+        mHandler.removeCallbacks(mInputCheckRunnable);
         // Close the Gpio pin.
         Log.i(TAG, "Closing LED GPIO pin");
         try {
@@ -80,26 +90,31 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-    private Runnable mBlinkRunnable = new Runnable() {
+    private Runnable mInputCheckRunnable = new Runnable() {
         @Override
         public void run() {
-            // Exit Runnable if the GPIO is already closed
-            if (bcm4 == null) {
+            if (bcm17 == null || bcm27 == null || bcm22 == null) {
                 return;
             }
-        /*    try {
-                // Toggle the GPIO state
-                mLedGpio.setValue(!mLedGpio.getValue());
-                Log.d(TAG, "State set to " + mLedGpio.getValue());
-
-                // Reschedule the same runnable in {#intervalBetweenBlinksMs} milliseconds
-                mHandler.postDelayed(mBlinkRunnable, intervalBetweenBlinksMs);
-            } catch (IOException e) {
-                Log.e(TAG, "Error on PeripheralIO API", e);
-            }*/
+                setInputGPIOState(bcm17,refBCM17);
+                setInputGPIOState(bcm27,refBCM27);
+                setInputGPIOState(bcm22,refBCM22);
+                mHandler.postDelayed(mInputCheckRunnable, delayMillis);
         }
     };
 
+    private void setInputGPIOState(Gpio gpio,DatabaseReference refBCM){
+        try {
+            if (gpio.getValue()){
+                refBCM.setValue(1);
+            } else {
+                refBCM.setValue(0);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
 
     private void getDataInit() {
 
@@ -134,6 +149,10 @@ public class HomeActivity extends AppCompatActivity {
 
     private void updateGPIO(DataSnapshot ds) {
         switch (ds.getKey()) {
+            case "delay":
+                delayMillis = Integer.parseInt(ds.getValue().toString());
+                Log.d(TAG, "BCM27 state " +  delayMillis);
+                break;
             case "BCM4":
                 try {
                     bcm4.setValue(getState(ds.getValue()));
@@ -192,6 +211,10 @@ public class HomeActivity extends AppCompatActivity {
 
     private void initGPIO(DataSnapshot ds) {
         switch (ds.getKey()) {
+            case "delay":
+                delayMillis = Integer.parseInt(ds.getValue().toString());
+                mHandler.post(mInputCheckRunnable);
+                break;
             case "BCM4":
                 try {
                     bcm4 = service.openGpio("BCM4");
@@ -274,38 +297,9 @@ public class HomeActivity extends AppCompatActivity {
     public void configureInput(Gpio gpio) throws IOException {
         // Initialize the pin as an input
         gpio.setDirection(Gpio.DIRECTION_IN);
-
-        gpio.setEdgeTriggerType(Gpio.EDGE_BOTH);
-        gpio.registerGpioCallback(mGpioCallback);
     }
 
-    private GpioCallback mGpioCallback = new GpioCallback() {
-        @Override
-        public boolean onGpioEdge(Gpio gpio) {
-            // Read the active low pin state
-            try {
-                if (gpio.getValue()) {
-                    // Pin is LOW
-                    Log.d(TAG, "INPUT : " + gpio.toString() + " " + gpio.getValue()  );
-                   // mDatabase.child("GPIO").child("BCM17").setValue(0);
-                } else {
-                    // Pin is HIGH
-                    Log.d(TAG, "INPUT : " + gpio.toString() + " " + gpio.getValue()  );
-                    // mDatabase.child("GPIO").child("BCM17").setValue(0);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
 
-            // Continue listening for more interrupts
-            return true;
-        }
-
-        @Override
-        public void onGpioError(Gpio gpio, int error) {
-            Log.w(TAG, gpio + ": Error event " + error);
-        }
-    };
 
     public void configureOutput(Gpio gpio) throws IOException {
         // Initialize the pin as an input
