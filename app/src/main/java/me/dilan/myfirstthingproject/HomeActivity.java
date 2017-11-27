@@ -40,23 +40,17 @@ public class HomeActivity extends AppCompatActivity {
     private DatabaseReference refBCM17;
     private DatabaseReference refBCM27;
     private DatabaseReference refBCM22;
-
+    private DatabaseReference refBCM23;
+    private DatabaseReference refBCM24;
+    private DatabaseReference refBCM25;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
 
-        mDatabase = FirebaseDatabase.getInstance().getReference();
+        initFirebase();
         getDataInit();
-        DatabaseReference refonline = mDatabase.child("Config").child("online");
-        refonline.setValue(1);
-        refonline.onDisconnect().setValue(0);
-        refBCM17 = mDatabase.child("GPIO").child("BCM17");
-        refBCM17.onDisconnect().setValue(0);
-        refBCM27 = mDatabase.child("GPIO").child("BCM27");
-        refBCM27.onDisconnect().setValue(0);
-        refBCM22 = mDatabase.child("GPIO").child("BCM22");
-        refBCM22.onDisconnect().setValue(0);
+        mHandler.post(mInputCheckRunnable);
     }
 
     @Override
@@ -64,7 +58,7 @@ public class HomeActivity extends AppCompatActivity {
         super.onDestroy();
         mHandler.removeCallbacks(mInputCheckRunnable);
         // Close the Gpio pin.
-        Log.i(TAG, "Closing LED GPIO pin");
+        Log.i(TAG, "Closing GPIO pin");
         try {
             bcm4.close();
             bcm5.close();
@@ -113,7 +107,6 @@ public class HomeActivity extends AppCompatActivity {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
     private void getDataInit() {
@@ -151,7 +144,7 @@ public class HomeActivity extends AppCompatActivity {
         switch (ds.getKey()) {
             case "delay":
                 delayMillis = Integer.parseInt(ds.getValue().toString());
-                Log.d(TAG, "BCM27 state " +  delayMillis);
+              //  Log.d(TAG, "BCM27 state " +  delayMillis);
                 break;
             case "BCM4":
                 try {
@@ -213,7 +206,6 @@ public class HomeActivity extends AppCompatActivity {
         switch (ds.getKey()) {
             case "delay":
                 delayMillis = Integer.parseInt(ds.getValue().toString());
-                mHandler.post(mInputCheckRunnable);
                 break;
             case "BCM4":
                 try {
@@ -306,6 +298,27 @@ public class HomeActivity extends AppCompatActivity {
         gpio.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
 // High voltage is considered active
         //gpio.setActiveType(Gpio.ACTIVE_HIGH);
+
+    }
+    private void initFirebase() {
+        mDatabase = FirebaseDatabase.getInstance().getReference();
+        DatabaseReference refonline = mDatabase.child("Config").child("online");
+        refonline.setValue(1);
+        refonline.onDisconnect().setValue(0);
+
+        refBCM17 = mDatabase.child("GPIO").child("BCM17");
+        refBCM17.onDisconnect().setValue(0);
+        refBCM27 = mDatabase.child("GPIO").child("BCM27");
+        refBCM27.onDisconnect().setValue(0);
+        refBCM22 = mDatabase.child("GPIO").child("BCM22");
+        refBCM22.onDisconnect().setValue(0);
+
+        refBCM23 = mDatabase.child("GPIO").child("BCM23");
+        refBCM23.onDisconnect().setValue(0);
+        refBCM24 = mDatabase.child("GPIO").child("BCM24");
+        refBCM24.onDisconnect().setValue(0);
+        refBCM25 = mDatabase.child("GPIO").child("BCM25");
+        refBCM25.onDisconnect().setValue(0);
 
     }
 
