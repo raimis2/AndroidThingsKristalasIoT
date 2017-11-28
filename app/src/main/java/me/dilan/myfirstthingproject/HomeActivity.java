@@ -6,7 +6,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 
 import com.google.android.things.pio.Gpio;
-import com.google.android.things.pio.GpioCallback;
 import com.google.android.things.pio.PeripheralManagerService;
 import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
@@ -37,12 +36,18 @@ public class HomeActivity extends AppCompatActivity {
     private PeripheralManagerService service = new PeripheralManagerService();
 
     private DatabaseReference mDatabase;
+    private DatabaseReference refAuto;
+    private long malfunctionOffset;
+    private DatabaseReference refMalfunction;
     private DatabaseReference refBCM17;
     private DatabaseReference refBCM27;
     private DatabaseReference refBCM22;
     private DatabaseReference refBCM23;
     private DatabaseReference refBCM24;
     private DatabaseReference refBCM25;
+    boolean isRunning = false;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -57,6 +62,7 @@ public class HomeActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         mHandler.removeCallbacks(mInputCheckRunnable);
+        mHandler.removeCallbacks(mAutoModeRunnable);
         // Close the Gpio pin.
         Log.i(TAG, "Closing GPIO pin");
         try {
@@ -90,16 +96,79 @@ public class HomeActivity extends AppCompatActivity {
             if (bcm17 == null || bcm27 == null || bcm22 == null) {
                 return;
             }
-                setInputGPIOState(bcm17,refBCM17);
-                setInputGPIOState(bcm27,refBCM27);
-                setInputGPIOState(bcm22,refBCM22);
-                mHandler.postDelayed(mInputCheckRunnable, delayMillis);
+            setInputGPIOState(bcm17, refBCM17);
+            setInputGPIOState(bcm27, refBCM27);
+            setInputGPIOState(bcm22, refBCM22);
+
+            mHandler.postDelayed(mInputCheckRunnable, delayMillis);
         }
     };
 
-    private void setInputGPIOState(Gpio gpio,DatabaseReference refBCM){
+    private Runnable mAutoModeRunnable = new Runnable() {
+        @Override
+        public void run() {
+            long tStart = 0; // = System.currentTimeMillis();
+            boolean watering = false;
+            try {
+                isRunning = true;
+                if (bcm17 == null || bcm27 == null || bcm22 == null || bcm23 == null || bcm24 == null || bcm25 == null) {
+                    refMalfunction.setValue(1);
+                    return;
+                }
+                //check input for plant
+                if (!bcm17.getValue()) {
+                    watering = true;
+                    // it is dry, open switch
+                    if (!bcm24.getValue()) {
+                        bcm24.setValue(true);
+                        //mark Firebase, that switch is active
+                        refBCM24.setValue(1);
+                    }
+
+                    //activate Pump
+                    if (!bcm23.getValue()) {
+                        bcm23.setValue(true);
+                        tStart = System.currentTimeMillis();
+                        //mark Firebase, that pump is active
+                        refBCM23.setValue(1);
+                    }
+
+                } else {
+                    watering = false;
+                    //switch off switch & pump
+                    if (bcm24.getValue()) bcm24.setValue(false);
+                    if (bcm23.getValue()) bcm23.setValue(false);
+                    //mark Firebase switch & pump is off
+                    refBCM24.setValue(0);
+                    refBCM23.setValue(0);
+                }
+                if (watering){
+                    long tEnd = System.currentTimeMillis();
+                    long tDelta = tEnd - tStart;
+                    //check time elapsed since start of the watering
+                    if (tDelta >= malfunctionOffset){
+                        refMalfunction.setValue(1);
+                    }
+                   // double elapsedSeconds = tDelta / 1000.0;
+                }
+
+
+
+                //check malfunction
+
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                isRunning = false;
+            }
+
+            mHandler.postDelayed(mAutoModeRunnable, delayMillis);
+        }
+    };
+
+    private void setInputGPIOState(Gpio gpio, DatabaseReference refBCM) {
         try {
-            if (gpio.getValue()){
+            if (gpio.getValue()) {
                 refBCM.setValue(1);
             } else {
                 refBCM.setValue(0);
@@ -142,9 +211,30 @@ public class HomeActivity extends AppCompatActivity {
 
     private void updateGPIO(DataSnapshot ds) {
         switch (ds.getKey()) {
+            case "auto":
+                if (getState(ds.getValue())) {
+                    if (!isRunning) {
+                        mHandler.post(mAutoModeRunnable);
+                        //  Log.d(TAG, "Pradedam Begt");
+                    }
+                } else {
+                    mHandler.removeCallbacks(mAutoModeRunnable);
+                    isRunning = false;
+                    //Log.d(TAG, "PAgavo Miantai !!!!!!!!!!!!!!!!!!!!!!!");
+                }
+                break;
+            case "malfunction":
+                if (getState(ds.getValue())) {
+                    finish();
+                    System.exit(0);// alt + f4 + table_flip
+                }
+                break;
+            case "malfunc_offset":
+                malfunctionOffset = Integer.parseInt(ds.getValue().toString());
+                break;
             case "delay":
                 delayMillis = Integer.parseInt(ds.getValue().toString());
-              //  Log.d(TAG, "BCM27 state " +  delayMillis);
+                //  Log.d(TAG, "BCM27 state " +  delayMillis);
                 break;
             case "BCM4":
                 try {
@@ -159,7 +249,7 @@ public class HomeActivity extends AppCompatActivity {
                 } catch (IOException e) {
                     Log.e(TAG, "Error on PeripheralIO API", e);
                 }
-           //     Log.d(TAG, "State set to " + "BCM5");
+                //     Log.d(TAG, "State set to " + "BCM5");
                 break;
             case "BCM6":
                 try {
@@ -204,6 +294,27 @@ public class HomeActivity extends AppCompatActivity {
 
     private void initGPIO(DataSnapshot ds) {
         switch (ds.getKey()) {
+            case "auto":
+                if (getState(ds.getValue())) {
+                    if (!isRunning) {
+                        mHandler.post(mAutoModeRunnable);
+                        //  Log.d(TAG, "Pradedam Begt");
+                    }
+                } else {
+                    mHandler.removeCallbacks(mAutoModeRunnable);
+                    isRunning = false;
+                    //Log.d(TAG, "PAgavo Miantai !!!!!!!!!!!!!!!!!!!!!!!");
+                }
+                break;
+            case "malfunction":
+                if (getState(ds.getValue())) {
+                    finish();
+                    System.exit(0);
+                }
+                break;
+            case "malfunc_offset":
+                malfunctionOffset = Integer.parseInt(ds.getValue().toString());
+                break;
             case "delay":
                 delayMillis = Integer.parseInt(ds.getValue().toString());
                 break;
@@ -292,7 +403,6 @@ public class HomeActivity extends AppCompatActivity {
     }
 
 
-
     public void configureOutput(Gpio gpio) throws IOException {
         // Initialize the pin as an input
         gpio.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
@@ -300,11 +410,17 @@ public class HomeActivity extends AppCompatActivity {
         //gpio.setActiveType(Gpio.ACTIVE_HIGH);
 
     }
+
     private void initFirebase() {
         mDatabase = FirebaseDatabase.getInstance().getReference();
         DatabaseReference refonline = mDatabase.child("Config").child("online");
         refonline.setValue(1);
         refonline.onDisconnect().setValue(0);
+
+        refAuto = mDatabase.child("Config").child("auto");
+        refAuto.onDisconnect().setValue(0);
+
+        refMalfunction = mDatabase.child("Config").child("malfunction");
 
         refBCM17 = mDatabase.child("GPIO").child("BCM17");
         refBCM17.onDisconnect().setValue(0);
