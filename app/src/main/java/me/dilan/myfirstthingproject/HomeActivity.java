@@ -19,6 +19,7 @@ public class HomeActivity extends AppCompatActivity {
 
     private static final String TAG = HomeActivity.class.getSimpleName();
     private Handler mHandler = new Handler();
+    private MCP3008 mMCP3008;
     private long delayMillis;
     private Gpio bcm4;
     private Gpio bcm5;
@@ -45,6 +46,19 @@ public class HomeActivity extends AppCompatActivity {
     private DatabaseReference refBCM23;
     private DatabaseReference refBCM24;
     private DatabaseReference refBCM25;
+
+    private int h1channel = 0x0;
+    private int h2channel = 0x1;
+    private int h3channel = 0x2;
+    private int h4channel = 0x3;
+    private int h5channel = 0x4;
+    private int h6channel = 0x5;
+    private int h7channel = 0x6;
+    private int h8channel = 0x7;
+
+    private DatabaseReference refSMH1;
+    private DatabaseReference refSMH2;
+    private DatabaseReference refSMH3;
     boolean isRunning = false;
 
 
@@ -54,6 +68,7 @@ public class HomeActivity extends AppCompatActivity {
         setContentView(R.layout.activity_home);
 
         initFirebase();
+        initMCP3008();
         getDataInit();
         mHandler.post(mInputCheckRunnable);
     }
@@ -88,17 +103,35 @@ public class HomeActivity extends AppCompatActivity {
             bcm27 = null;
             bcm22 = null;
         }
+        if (mMCP3008 != null) {
+            mMCP3008.unregister();
+        }
+    }
+
+    private void updateFirebaseHumidity(int channel, DatabaseReference refSMH){
+        int analogValue = 0;
+        int percentageValue = 0;
+        try {
+            analogValue = mMCP3008.readAdc(channel);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        if (analogValue <= 500){
+            percentageValue = 100;
+        } else {
+            percentageValue = analogValue * 100 / 1023;
+        }
+
+        refSMH.setValue(percentageValue);
     }
 
     private Runnable mInputCheckRunnable = new Runnable() {
         @Override
         public void run() {
-            if (bcm17 == null || bcm27 == null || bcm22 == null) {
-                return;
-            }
-            setInputGPIOState(bcm17, refBCM17);
-            setInputGPIOState(bcm27, refBCM27);
-            setInputGPIOState(bcm22, refBCM22);
+
+            updateFirebaseHumidity(h1channel, refSMH1);
+            updateFirebaseHumidity(h2channel, refSMH2);
+            updateFirebaseHumidity(h3channel, refSMH3);
 
             mHandler.postDelayed(mInputCheckRunnable, delayMillis);
         }
@@ -142,16 +175,15 @@ public class HomeActivity extends AppCompatActivity {
                     refBCM24.setValue(0);
                     refBCM23.setValue(0);
                 }
-                if (watering){
+                if (watering) {
                     long tEnd = System.currentTimeMillis();
                     long tDelta = tEnd - tStart;
                     //check time elapsed since start of the watering
-                    if (tDelta >= malfunctionOffset){
+                    if (tDelta >= malfunctionOffset) {
                         refMalfunction.setValue(1);
                     }
-                   // double elapsedSeconds = tDelta / 1000.0;
+                    // double elapsedSeconds = tDelta / 1000.0;
                 }
-
 
 
                 //check malfunction
@@ -165,21 +197,7 @@ public class HomeActivity extends AppCompatActivity {
             mHandler.postDelayed(mAutoModeRunnable, delayMillis);
         }
     };
-
-    private void setInputGPIOState(Gpio gpio, DatabaseReference refBCM) {
-        try {
-            if (gpio.getValue()) {
-                refBCM.setValue(1);
-            } else {
-                refBCM.setValue(0);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void getDataInit() {
-
+        private void getDataInit() {
         mDatabase.addChildEventListener(new ChildEventListener() {
             @Override
             public void onChildAdded(DataSnapshot dataSnapshot, String prevChildKey) {
@@ -436,6 +454,22 @@ public class HomeActivity extends AppCompatActivity {
         refBCM25 = mDatabase.child("GPIO").child("BCM25");
         refBCM25.onDisconnect().setValue(0);
 
+
+        refSMH1 = mDatabase.child("SM").child("H1");
+        refSMH1.onDisconnect().setValue(0);
+        refSMH2 = mDatabase.child("SM").child("H2");
+        refSMH2.onDisconnect().setValue(0);
+        refSMH3 = mDatabase.child("SM").child("H3");
+        refSMH3.onDisconnect().setValue(0);
+    }
+
+    private void initMCP3008() {
+        try {
+            mMCP3008 = new MCP3008("BCM12", "BCM16", "BCM20", "BCM21");
+            mMCP3008.register();
+        } catch (IOException e) {
+            Log.e("MCP3008", "MCP initialization exception occurred: " + e.getMessage());
+        }
     }
 
 }
