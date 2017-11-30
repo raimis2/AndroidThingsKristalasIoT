@@ -56,6 +56,10 @@ public class HomeActivity extends AppCompatActivity {
     private int h7channel = 0x6;
     private int h8channel = 0x7;
 
+    private int h1Desired = 0;
+    private int h2Desired = 0;
+    private int h3Desired = 0;
+
     private DatabaseReference refSMH1;
     private DatabaseReference refSMH2;
     private DatabaseReference refSMH3;
@@ -108,23 +112,40 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-    private void updateFirebaseHumidity(int channel, DatabaseReference refSMH){
-        int analogValue = 0;
-        int percentageValue = 0;
+
+    private void plantMonitor(int analogChannel, int desiredHumidity){
+        long tStart = 0; // = System.currentTimeMillis();
+        boolean watering = false;
         try {
-            analogValue = mMCP3008.readAdc(channel);
+            if (getADCPercentage(mMCP3008.readAdc(analogChannel)) <= desiredHumidity) {
+                watering = true;
+                // it is dry, open switch
+               // activateSwitch1();
+
+                //activate Pump
+                tStart = System.currentTimeMillis();
+                activatePump();
+
+            } else {
+                watering = false;
+                //switch off switch & pump
+                deactivatePump();
+                deactivateSwitch1();
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
-        if (analogValue <= 500){
-            percentageValue = 100;
-        } else {
-            percentageValue = analogValue * 100 / 1023;
+        if (watering) {
+            long tEnd = System.currentTimeMillis();
+            long tDelta = tEnd - tStart;
+            //check time elapsed since start of the watering
+            if (tDelta >= malfunctionOffset) {
+                refMalfunction.setValue(1);
+            }
+            // double elapsedSeconds = tDelta / 1000.0;
         }
 
-        refSMH.setValue(percentageValue);
     }
-
     private Runnable mInputCheckRunnable = new Runnable() {
         @Override
         public void run() {
@@ -137,57 +158,20 @@ public class HomeActivity extends AppCompatActivity {
         }
     };
 
+
+
     private Runnable mAutoModeRunnable = new Runnable() {
         @Override
         public void run() {
-            long tStart = 0; // = System.currentTimeMillis();
-            boolean watering = false;
             try {
                 isRunning = true;
-                if (bcm17 == null || bcm27 == null || bcm22 == null || bcm23 == null || bcm24 == null || bcm25 == null) {
+                if (bcm23 == null || bcm24 == null || bcm25 == null) {
                     refMalfunction.setValue(1);
                     return;
                 }
-                //check input for plant
-                if (!bcm17.getValue()) {
-                    watering = true;
-                    // it is dry, open switch
-                    if (!bcm24.getValue()) {
-                        bcm24.setValue(true);
-                        //mark Firebase, that switch is active
-                        refBCM24.setValue(1);
-                    }
-
-                    //activate Pump
-                    if (!bcm23.getValue()) {
-                        bcm23.setValue(true);
-                        tStart = System.currentTimeMillis();
-                        //mark Firebase, that pump is active
-                        refBCM23.setValue(1);
-                    }
-
-                } else {
-                    watering = false;
-                    //switch off switch & pump
-                    if (bcm24.getValue()) bcm24.setValue(false);
-                    if (bcm23.getValue()) bcm23.setValue(false);
-                    //mark Firebase switch & pump is off
-                    refBCM24.setValue(0);
-                    refBCM23.setValue(0);
-                }
-                if (watering) {
-                    long tEnd = System.currentTimeMillis();
-                    long tDelta = tEnd - tStart;
-                    //check time elapsed since start of the watering
-                    if (tDelta >= malfunctionOffset) {
-                        refMalfunction.setValue(1);
-                    }
-                    // double elapsedSeconds = tDelta / 1000.0;
-                }
-
-
-                //check malfunction
-
+                plantMonitor(h1channel, h1Desired);
+                //plantMonitor(h2channel, h2Desired);
+              //  plantMonitor(h2channel, h3Desired);
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -197,7 +181,8 @@ public class HomeActivity extends AppCompatActivity {
             mHandler.postDelayed(mAutoModeRunnable, delayMillis);
         }
     };
-        private void getDataInit() {
+
+    private void getDataInit() {
         mDatabase.addChildEventListener(new ChildEventListener() {
             @Override
             public void onChildAdded(DataSnapshot dataSnapshot, String prevChildKey) {
@@ -253,6 +238,15 @@ public class HomeActivity extends AppCompatActivity {
             case "delay":
                 delayMillis = Integer.parseInt(ds.getValue().toString());
                 //  Log.d(TAG, "BCM27 state " +  delayMillis);
+                break;
+            case "h1_desired":
+                h1Desired = Integer.parseInt(ds.getValue().toString());
+                break;
+            case "h2_desired":
+                h2Desired = Integer.parseInt(ds.getValue().toString());
+                break;
+            case "h3_desired":
+                h3Desired = Integer.parseInt(ds.getValue().toString());
                 break;
             case "BCM4":
                 try {
@@ -336,6 +330,15 @@ public class HomeActivity extends AppCompatActivity {
             case "delay":
                 delayMillis = Integer.parseInt(ds.getValue().toString());
                 break;
+            case "h1_desired":
+                h1Desired = Integer.parseInt(ds.getValue().toString());
+                break;
+            case "h2_desired":
+                h2Desired = Integer.parseInt(ds.getValue().toString());
+                break;
+            case "h3_desired":
+                h3Desired = Integer.parseInt(ds.getValue().toString());
+                break;
             case "BCM4":
                 try {
                     bcm4 = service.openGpio("BCM4");
@@ -386,31 +389,31 @@ public class HomeActivity extends AppCompatActivity {
                 }
                 break;
             case "BCM17":
-                try {
+              /*  try {
                     bcm17 = service.openGpio("BCM17");
                     configureInput(bcm17);
                     mDatabase.child("GPIO").child("BCM17").setValue(0);
                 } catch (IOException e) {
                     Log.e(TAG, "Error on PeripheralIO API", e);
-                }
+                }*/
                 break;
             case "BCM27":
-                try {
+              /*  try {
                     bcm27 = service.openGpio("BCM27");
                     configureInput(bcm27);
                     mDatabase.child("GPIO").child("BCM27").setValue(0);
                 } catch (IOException e) {
                     Log.e(TAG, "Error on PeripheralIO API", e);
-                }
+                }*/
                 break;
             case "BCM22":
-                try {
+              /*  try {
                     bcm22 = service.openGpio("BCM22");
                     configureInput(bcm22);
                     mDatabase.child("GPIO").child("BCM22").setValue(0);
                 } catch (IOException e) {
                     Log.e(TAG, "Error on PeripheralIO API", e);
-                }
+                }*/
                 break;
         }
     }
@@ -420,13 +423,11 @@ public class HomeActivity extends AppCompatActivity {
         gpio.setDirection(Gpio.DIRECTION_IN);
     }
 
-
     public void configureOutput(Gpio gpio) throws IOException {
         // Initialize the pin as an input
         gpio.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
 // High voltage is considered active
         //gpio.setActiveType(Gpio.ACTIVE_HIGH);
-
     }
 
     private void initFirebase() {
@@ -440,20 +441,12 @@ public class HomeActivity extends AppCompatActivity {
 
         refMalfunction = mDatabase.child("Config").child("malfunction");
 
-        refBCM17 = mDatabase.child("GPIO").child("BCM17");
-        refBCM17.onDisconnect().setValue(0);
-        refBCM27 = mDatabase.child("GPIO").child("BCM27");
-        refBCM27.onDisconnect().setValue(0);
-        refBCM22 = mDatabase.child("GPIO").child("BCM22");
-        refBCM22.onDisconnect().setValue(0);
-
         refBCM23 = mDatabase.child("GPIO").child("BCM23");
         refBCM23.onDisconnect().setValue(0);
         refBCM24 = mDatabase.child("GPIO").child("BCM24");
         refBCM24.onDisconnect().setValue(0);
         refBCM25 = mDatabase.child("GPIO").child("BCM25");
         refBCM25.onDisconnect().setValue(0);
-
 
         refSMH1 = mDatabase.child("SM").child("H1");
         refSMH1.onDisconnect().setValue(0);
@@ -470,6 +463,102 @@ public class HomeActivity extends AppCompatActivity {
         } catch (IOException e) {
             Log.e("MCP3008", "MCP initialization exception occurred: " + e.getMessage());
         }
+    }
+    private void activateSwitch1(){
+        try {
+            if (!bcm24.getValue()) {
+                bcm24.setValue(true);
+                //mark Firebase, that switch is active
+                refBCM24.setValue(1);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    private void activateSwitch2(){
+        try {
+            if (!bcm25.getValue()) {
+                bcm25.setValue(true);
+                //mark Firebase, that switch is active
+                refBCM25.setValue(1);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void activatePump(){
+        try {
+            if (!bcm23.getValue()) {
+                bcm23.setValue(true);
+                //tStart = System.currentTimeMillis();
+                //mark Firebase, that pump is active
+                refBCM23.setValue(1);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void deactivateSwitch1(){
+        try {
+            if (bcm24.getValue()) bcm24.setValue(false);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        refBCM24.setValue(0);
+    }
+    private void deactivateSwitch2(){
+        try {
+            if (bcm25.getValue()) bcm25.setValue(false);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        refBCM25.setValue(0);
+    }
+    private void deactivatePump(){
+        try {
+            if (bcm23.getValue()) bcm23.setValue(false);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        refBCM23.setValue(0);
+    }
+    private int getADCPercentage(int valueADC){
+        int analogValue = 0;
+        final int maxPercentage = 100;
+        final int sensorOffset = 500;
+        final int sensorMaxValue = 1023;
+        int percentageValue;
+        if (valueADC <= sensorOffset) {
+            percentageValue = maxPercentage;
+        } else {
+            percentageValue = maxPercentage - (Math.round(analogValue * maxPercentage / (sensorMaxValue - sensorOffset)));
+        }
+        return  percentageValue;
+    }
+    private void updateFirebaseHumidity(int channel, DatabaseReference refSMH) {
+        int analogValue = 0;
+        final int maxPercentage = 100;
+        final int sensorOffset = 500;
+        final int sensorMaxValue = 1023;
+        int percentageValue;
+        try {
+            analogValue = mMCP3008.readAdc(channel) - sensorOffset;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        if (analogValue <= sensorOffset) {
+            percentageValue = maxPercentage;
+        } else {
+            percentageValue = maxPercentage - (Math.round(analogValue * maxPercentage / (sensorMaxValue - sensorOffset)));
+        }
+//        try {
+        //          Log.d(TAG, "Procentai" + percentageValue + " " + mMCP3008.readAdc(channel));
+        //    } catch (IOException e) {
+        //      e.printStackTrace();
+        //}
+        refSMH.setValue(percentageValue);
     }
 
 }
