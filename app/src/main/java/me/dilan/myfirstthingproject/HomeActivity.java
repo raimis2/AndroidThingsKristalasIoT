@@ -287,6 +287,7 @@ public class HomeActivity extends AppCompatActivity {
             case "BCM23":
                 try {
                     bcm23.setValue(getState(ds.getValue()));
+                    Log.d(TAG, "Pradedam Begt " + getState(ds.getValue()));
                 } catch (IOException e) {
                     Log.e(TAG, "Error on PeripheralIO API", e);
                 }
@@ -427,7 +428,7 @@ public class HomeActivity extends AppCompatActivity {
         // Initialize the pin as an input
         gpio.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
 // High voltage is considered active
-        //gpio.setActiveType(Gpio.ACTIVE_HIGH);
+        gpio.setActiveType(Gpio.ACTIVE_LOW);
     }
 
     private void initFirebase() {
@@ -527,7 +528,7 @@ public class HomeActivity extends AppCompatActivity {
     private int getADCPercentage(int valueADC){
         int analogValue = 0;
         final int maxPercentage = 100;
-        final int sensorOffset = 500;
+        final int sensorOffset = 200;
         final int sensorMaxValue = 1023;
         int percentageValue;
         if (valueADC <= sensorOffset) {
@@ -540,11 +541,12 @@ public class HomeActivity extends AppCompatActivity {
     private void updateFirebaseHumidity(int channel, DatabaseReference refSMH) {
         int analogValue = 0;
         final int maxPercentage = 100;
-        final int sensorOffset = 500;
+        final int sensorOffset = 200;
         final int sensorMaxValue = 1023;
         int percentageValue;
         try {
             analogValue = mMCP3008.readAdc(channel) - sensorOffset;
+            Log.d(TAG, "Procentai " + mMCP3008.readAdc(channel));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -552,6 +554,7 @@ public class HomeActivity extends AppCompatActivity {
             percentageValue = maxPercentage;
         } else {
             percentageValue = maxPercentage - (Math.round(analogValue * maxPercentage / (sensorMaxValue - sensorOffset)));
+            Log.d(TAG, "Procentai " + percentageValue);
         }
 //        try {
         //          Log.d(TAG, "Procentai" + percentageValue + " " + mMCP3008.readAdc(channel));
