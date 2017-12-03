@@ -1,5 +1,7 @@
 package me.dilan.myfirstthingproject;
 
+import android.app.AlarmManager;
+import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
@@ -14,6 +16,10 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Locale;
+import java.util.TimeZone;
 
 public class HomeActivity extends AppCompatActivity {
 
@@ -147,12 +153,21 @@ public class HomeActivity extends AppCompatActivity {
 
     }
     private Runnable mInputCheckRunnable = new Runnable() {
+        String formattedDate;
+        TimeZone tz = TimeZone.getTimeZone("GMT+02:00");
+        Calendar calendar = Calendar.getInstance();
+        ;
+
         @Override
         public void run() {
-
+            AlarmManager am = (AlarmManager)getContext().getSystemService(Context.ALARM_SERVICE);
+            am.setTimeZone("Europe/Riga");
+            formattedDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime());
             updateFirebaseHumidity(h1channel, refSMH1);
             updateFirebaseHumidity(h2channel, refSMH2);
             updateFirebaseHumidity(h3channel, refSMH3);
+            mDatabase.child("SM").child("timestamp").setValue(formattedDate);
+
 
             mHandler.postDelayed(mInputCheckRunnable, delayMillis);
         }
