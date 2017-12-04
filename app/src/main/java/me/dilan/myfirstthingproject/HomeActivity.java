@@ -16,8 +16,10 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
 import java.io.IOException;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -153,21 +155,12 @@ public class HomeActivity extends AppCompatActivity {
 
     }
     private Runnable mInputCheckRunnable = new Runnable() {
-        String formattedDate;
-        TimeZone tz = TimeZone.getTimeZone("GMT+02:00");
-        Calendar calendar = Calendar.getInstance();
-        ;
-
         @Override
         public void run() {
-            AlarmManager am = (AlarmManager)getContext().getSystemService(Context.ALARM_SERVICE);
-            am.setTimeZone("Europe/Riga");
-            formattedDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime());
             updateFirebaseHumidity(h1channel, refSMH1);
             updateFirebaseHumidity(h2channel, refSMH2);
             updateFirebaseHumidity(h3channel, refSMH3);
-            mDatabase.child("SM").child("timestamp").setValue(formattedDate);
-
+            updateTimestamp();
 
             mHandler.postDelayed(mInputCheckRunnable, delayMillis);
         }
@@ -252,6 +245,11 @@ public class HomeActivity extends AppCompatActivity {
                 break;
             case "delay":
                 delayMillis = Integer.parseInt(ds.getValue().toString());
+                if (mHandler != null) {
+                    mHandler.removeCallbacks(mInputCheckRunnable);
+                    mHandler.post(mInputCheckRunnable);
+                }
+
                 //  Log.d(TAG, "BCM27 state " +  delayMillis);
                 break;
             case "h1_desired":
@@ -577,6 +575,13 @@ public class HomeActivity extends AppCompatActivity {
         //      e.printStackTrace();
         //}
         refSMH.setValue(percentageValue);
+    }
+    private void  updateTimestamp(){
+        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.HOUR, 2);
+        String newTime = df.format(cal.getTime());
+        mDatabase.child("SM").child("timestamp").setValue(newTime);
     }
 
 }
