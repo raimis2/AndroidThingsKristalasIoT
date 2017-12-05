@@ -122,14 +122,14 @@ public class HomeActivity extends AppCompatActivity {
     }
 
 
-    private void plantMonitor(int analogChannel, int desiredHumidity){
+    private void plantMonitor(int analogChannel, int desiredHumidity) {
         long tStart = 0; // = System.currentTimeMillis();
         boolean watering = false;
         try {
             if (getADCPercentage(mMCP3008.readAdc(analogChannel)) <= desiredHumidity) {
                 watering = true;
                 // it is dry, open switch
-               // activateSwitch1();
+                // activateSwitch1();
 
                 //activate Pump
                 tStart = System.currentTimeMillis();
@@ -155,6 +155,7 @@ public class HomeActivity extends AppCompatActivity {
         }
 
     }
+
     private Runnable mInputCheckRunnable = new Runnable() {
         @Override
         public void run() {
@@ -168,7 +169,6 @@ public class HomeActivity extends AppCompatActivity {
     };
 
 
-
     private Runnable mAutoModeRunnable = new Runnable() {
         @Override
         public void run() {
@@ -180,7 +180,7 @@ public class HomeActivity extends AppCompatActivity {
                 }
                 plantMonitor(h1channel, h1Desired);
                 //plantMonitor(h2channel, h2Desired);
-              //  plantMonitor(h2channel, h3Desired);
+                //  plantMonitor(h2channel, h3Desired);
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -351,6 +351,12 @@ public class HomeActivity extends AppCompatActivity {
             case "delay":
                 delayMillis = Integer.parseInt(ds.getValue().toString());
                 break;
+            case "online":
+                if (!getState(ds.getValue())) {
+                    refonline.setValue(1);
+                    refonline.onDisconnect().setValue(0);
+                }
+                break;
             case "h1_desired":
                 h1Desired = Integer.parseInt(ds.getValue().toString());
                 break;
@@ -485,7 +491,8 @@ public class HomeActivity extends AppCompatActivity {
             Log.e("MCP3008", "MCP initialization exception occurred: " + e.getMessage());
         }
     }
-    private void activateSwitch1(){
+
+    private void activateSwitch1() {
         try {
             if (!bcm24.getValue()) {
                 bcm24.setValue(true);
@@ -496,7 +503,8 @@ public class HomeActivity extends AppCompatActivity {
             e.printStackTrace();
         }
     }
-    private void activateSwitch2(){
+
+    private void activateSwitch2() {
         try {
             if (!bcm25.getValue()) {
                 bcm25.setValue(true);
@@ -508,7 +516,7 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-    private void activatePump(){
+    private void activatePump() {
         try {
             if (!bcm23.getValue()) {
                 bcm23.setValue(true);
@@ -521,7 +529,7 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-    private void deactivateSwitch1(){
+    private void deactivateSwitch1() {
         try {
             if (bcm24.getValue()) bcm24.setValue(false);
         } catch (IOException e) {
@@ -529,7 +537,8 @@ public class HomeActivity extends AppCompatActivity {
         }
         refBCM24.setValue(0);
     }
-    private void deactivateSwitch2(){
+
+    private void deactivateSwitch2() {
         try {
             if (bcm25.getValue()) bcm25.setValue(false);
         } catch (IOException e) {
@@ -537,7 +546,8 @@ public class HomeActivity extends AppCompatActivity {
         }
         refBCM25.setValue(0);
     }
-    private void deactivatePump(){
+
+    private void deactivatePump() {
         try {
             if (bcm23.getValue()) bcm23.setValue(false);
         } catch (IOException e) {
@@ -545,7 +555,8 @@ public class HomeActivity extends AppCompatActivity {
         }
         refBCM23.setValue(0);
     }
-    private int getADCPercentage(int valueADC){
+
+    private int getADCPercentage(int valueADC) {
         int analogValue = 0;
         final int maxPercentage = 100;
         final int sensorOffset = 200;
@@ -556,8 +567,9 @@ public class HomeActivity extends AppCompatActivity {
         } else {
             percentageValue = maxPercentage - (Math.round(analogValue * maxPercentage / (sensorMaxValue - sensorOffset)));
         }
-        return  percentageValue;
+        return percentageValue;
     }
+
     private void updateFirebaseHumidity(int channel, DatabaseReference refSMH) {
         int analogValue = 0;
         final int maxPercentage = 100;
@@ -583,7 +595,8 @@ public class HomeActivity extends AppCompatActivity {
         //}
         refSMH.setValue(percentageValue);
     }
-    private void  updateTimestamp(){
+
+    private void updateTimestamp() {
         SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.HOUR, 2);
