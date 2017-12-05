@@ -46,6 +46,7 @@ public class HomeActivity extends AppCompatActivity {
 
     private DatabaseReference mDatabase;
     private DatabaseReference refAuto;
+    private DatabaseReference refonline;
     private long malfunctionOffset;
     private DatabaseReference refMalfunction;
     private DatabaseReference refBCM17;
@@ -252,6 +253,12 @@ public class HomeActivity extends AppCompatActivity {
 
                 //  Log.d(TAG, "BCM27 state " +  delayMillis);
                 break;
+            case "online":
+                if (!getState(ds.getValue())) {
+                    refonline.setValue(1);
+                    refonline.onDisconnect().setValue(0);
+                }
+                break;
             case "h1_desired":
                 h1Desired = Integer.parseInt(ds.getValue().toString());
                 break;
@@ -446,7 +453,7 @@ public class HomeActivity extends AppCompatActivity {
 
     private void initFirebase() {
         mDatabase = FirebaseDatabase.getInstance().getReference();
-        DatabaseReference refonline = mDatabase.child("Config").child("online");
+        refonline = mDatabase.child("Config").child("online");
         refonline.setValue(1);
         refonline.onDisconnect().setValue(0);
 
