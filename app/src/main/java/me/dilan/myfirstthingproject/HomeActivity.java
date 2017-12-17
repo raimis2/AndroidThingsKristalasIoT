@@ -14,6 +14,9 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.Query;
+import com.google.firebase.database.ServerValue;
+import com.google.firebase.database.ValueEventListener;
 
 import java.io.IOException;
 import java.text.ParseException;
@@ -22,6 +25,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 
 public class HomeActivity extends AppCompatActivity {
 
@@ -72,6 +76,7 @@ public class HomeActivity extends AppCompatActivity {
     private DatabaseReference refSMH1;
     private DatabaseReference refSMH2;
     private DatabaseReference refSMH3;
+    private DatabaseReference refSMH4;
     boolean isRunning = false;
 
 
@@ -159,9 +164,11 @@ public class HomeActivity extends AppCompatActivity {
     private Runnable mInputCheckRunnable = new Runnable() {
         @Override
         public void run() {
-            updateFirebaseHumidity(h1channel, refSMH1);
-            updateFirebaseHumidity(h2channel, refSMH2);
-            updateFirebaseHumidity(h3channel, refSMH3);
+            updateFirebaseHumidity(h1channel, refSMH1, "cheapChina");
+            updateFirebaseHumidity(h2channel, refSMH2, "cheapChina");
+            updateFirebaseHumidity(h3channel, refSMH3, "cheapChina");
+            updateFirebaseHumidity(h4channel, refSMH4, "capacitiveHumidity");
+
             updateTimestamp();
 
             mHandler.postDelayed(mInputCheckRunnable, delayMillis);
@@ -481,6 +488,27 @@ public class HomeActivity extends AppCompatActivity {
         refSMH2.onDisconnect().setValue(0);
         refSMH3 = mDatabase.child("SM").child("H3");
         refSMH3.onDisconnect().setValue(0);
+
+        refSMH4 = mDatabase.child("SM").child("H4");
+        refSMH4.onDisconnect().setValue(0);
+
+        long cutoff = new Date().getTime() - TimeUnit.MILLISECONDS.convert(5, TimeUnit.SECONDS);
+        Query historyQuery = mDatabase.child("history").orderByChild("time").endAt(cutoff);
+        historyQuery.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                for (DataSnapshot itemSnapshot : snapshot.getChildren()) {
+                    itemSnapshot.getRef().removeValue();
+                    Log.d(TAG, "Trinam");
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                throw databaseError.toException();
+            }
+
+        });
     }
 
     private void initMCP3008() {
@@ -570,38 +598,57 @@ public class HomeActivity extends AppCompatActivity {
         return percentageValue;
     }
 
-    private void updateFirebaseHumidity(int channel, DatabaseReference refSMH) {
+    private void updateFirebaseHumidity(int channel, DatabaseReference refSMH, String type) {
         int analogValue = 0;
         final int maxPercentage = 100;
         final int sensorOffset = 200;
+        final int capacitivesensorOffset = 340;
         final int sensorMaxValue = 1023;
-        int percentageValue;
+        final int capacitiveSensorMaxValue = 880;
+        int percentageValue = -1;
+
         try {
-            analogValue = mMCP3008.readAdc(channel) - sensorOffset;
-            Log.d(TAG, "Procentai " + mMCP3008.readAdc(channel));
+            analogValue = mMCP3008.readAdc(channel);
+            //  refSMH.setValue(mMCP3008.readAdc(channel));
+            // Log.d(TAG, "RAW ADC " + mMCP3008.readAdc(channel));
         } catch (IOException e) {
             e.printStackTrace();
         }
-        if (analogValue <= sensorOffset) {
-            percentageValue = maxPercentage;
-        } else {
-            percentageValue = maxPercentage - (Math.round(analogValue * maxPercentage / (sensorMaxValue - sensorOffset)));
-            Log.d(TAG, "Procentai " + percentageValue);
+
+        switch (type) {
+            case "cheapChina":
+                analogValue = analogValue - sensorOffset;
+                if (analogValue <= sensorOffset) {
+                    percentageValue = maxPercentage;
+                } else {
+                    percentageValue = maxPercentage - (Math.round(analogValue * maxPercentage / (sensorMaxValue - sensorOffset)));
+                }
+                break;
+            case "capacitiveHumidity":
+                analogValue = analogValue - capacitivesensorOffset;
+                Log.d(TAG, "Analog value " + analogValue);
+                if (analogValue <= capacitivesensorOffset) {
+                    percentageValue = maxPercentage;
+                } else {
+                    percentageValue = maxPercentage - (Math.round( (analogValue * maxPercentage) / (capacitiveSensorMaxValue - capacitivesensorOffset)));
+                }
+                break;
         }
-//        try {
-        //          Log.d(TAG, "Procentai" + percentageValue + " " + mMCP3008.readAdc(channel));
-        //    } catch (IOException e) {
-        //      e.printStackTrace();
-        //}
+
         refSMH.setValue(percentageValue);
     }
 
-    private void updateTimestamp() {
+    private String getTime() {
         SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.HOUR, 2);
         String newTime = df.format(cal.getTime());
-        mDatabase.child("SM").child("timestamp").setValue(newTime);
+        return newTime;
+    }
+
+    private void updateTimestamp() {
+
+        mDatabase.child("SM").child("timestamp").setValue(getTime());
     }
 
 }
