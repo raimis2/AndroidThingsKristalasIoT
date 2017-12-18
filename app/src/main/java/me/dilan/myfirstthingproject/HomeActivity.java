@@ -603,8 +603,8 @@ public class HomeActivity extends AppCompatActivity {
         final int maxPercentage = 100;
         final int sensorOffset = 200;
         final int capacitivesensorOffset = 340;
-        final int sensorMaxValue = 1023;
-        final int capacitiveSensorMaxValue = 880;
+        final int sensorMaxValue = 1024;
+        final int capacitiveSensorMaxValue = 900;
         int percentageValue = -1;
 
         try {
