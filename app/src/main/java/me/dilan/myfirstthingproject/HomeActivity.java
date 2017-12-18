@@ -618,7 +618,7 @@ public class HomeActivity extends AppCompatActivity {
         switch (type) {
             case "cheapChina":
                 analogValue = analogValue - sensorOffset;
-                if (analogValue <= sensorOffset) {
+                if (analogValue <= 0) {
                     percentageValue = maxPercentage;
                 } else {
                     percentageValue = maxPercentage - (Math.round(analogValue * maxPercentage / (sensorMaxValue - sensorOffset)));
@@ -626,8 +626,8 @@ public class HomeActivity extends AppCompatActivity {
                 break;
             case "capacitiveHumidity":
                 analogValue = analogValue - capacitivesensorOffset;
-                Log.d(TAG, "Analog value " + analogValue);
-                if (analogValue <= capacitivesensorOffset) {
+               // Log.d(TAG, "Analog value " + analogValue);
+                if (analogValue <= 0) {
                     percentageValue = maxPercentage;
                 } else {
                     percentageValue = maxPercentage - (Math.round( (analogValue * maxPercentage) / (capacitiveSensorMaxValue - capacitivesensorOffset)));
